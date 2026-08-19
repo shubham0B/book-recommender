@@ -58,6 +58,12 @@ export function BookMindApp() {
   }), [query, category])
 
   const selectBook = (book: Book) => { setSelected(book); setShowRecommendations(false); setTimeout(() => document.getElementById('book-details')?.scrollIntoView({ behavior: 'smooth' }), 20) }
+  const openRecommendations = () => {
+    setSelected((current) => current ?? books[0])
+    setShowRecommendations(true)
+    setMenuOpen(false)
+    window.setTimeout(() => document.getElementById('recommendations')?.scrollIntoView({ behavior: 'smooth' }), 50)
+  }
   const recommendations = books.filter((book) => book.title !== selected?.title).slice(0, 5)
 
   return (
@@ -65,11 +71,11 @@ export function BookMindApp() {
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
           <a href="#home" className="flex items-center gap-2 font-serif text-xl font-bold"><span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><BookOpen className="size-5" /></span>BookMind</a>
-          <nav className="hidden items-center gap-8 text-sm font-medium md:flex"><a href="#home">Home</a><a href="#explore">Explore</a><a href="#recommendations">Recommendations</a><a href="#about">About</a></nav>
+          <nav className="hidden items-center gap-8 text-sm font-medium md:flex"><a href="#home">Home</a><a href="#explore">Explore</a><button type="button" onClick={openRecommendations} className="hover:text-accent-foreground">Recommendations</button><a href="#about">About</a></nav>
           <div className="hidden items-center gap-2 md:flex"><Button variant="ghost" size="icon" aria-label="Search"><Search /></Button><Button className="h-10 px-4">Get Started</Button><Button variant="ghost" size="icon" aria-label="Profile"><UserRound /></Button></div>
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation">{menuOpen ? <X /> : <Menu />}</Button>
         </div>
-        {menuOpen && <nav className="flex flex-col gap-4 border-t border-border px-5 py-5 md:hidden"><a href="#home">Home</a><a href="#explore">Explore</a><a href="#recommendations">Recommendations</a><a href="#about">About</a></nav>}
+        {menuOpen && <nav className="flex flex-col items-start gap-4 border-t border-border px-5 py-5 md:hidden"><a href="#home">Home</a><a href="#explore">Explore</a><button type="button" onClick={openRecommendations}>Recommendations</button><a href="#about">About</a></nav>}
       </header>
 
       <section id="home" className="mx-auto grid max-w-7xl items-center gap-14 px-5 py-20 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
@@ -92,7 +98,7 @@ export function BookMindApp() {
 
       {selected && showRecommendations && <section id="recommendations" className="bg-primary py-20 text-primary-foreground"><div className="mx-auto flex max-w-7xl flex-col gap-10 px-5 lg:px-8"><div><p className="mb-3 flex items-center gap-2 text-xs font-bold tracking-[.2em] text-accent"><Sparkles className="size-4" />AI SEMANTIC MATCH</p><h2 className="font-serif text-4xl font-semibold">Books You Might Love</h2><p className="mt-3 text-primary-foreground/70">Because you liked {selected.title}</p></div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">{recommendations.map((book, index) => { const score = [92, 87, 84, 79, 75][index]; return <article key={book.title} className="overflow-hidden rounded-2xl bg-card text-card-foreground"><img src={cover(book.isbn)} alt={`Cover of ${book.title}`} className="aspect-[2/3] w-full object-cover" /><div className="flex flex-col gap-3 p-4"><div><h3 className="font-serif text-lg leading-tight">{book.title}</h3><p className="mt-1 text-sm text-muted-foreground">{book.author}</p></div><div className="flex items-center justify-between text-xs"><span>{book.genre}</span><strong className="text-accent-foreground">AI Match {score}%</strong></div><div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-accent" style={{ width: `${score}%` }} /></div></div></article>})}</div><div className="flex max-w-3xl items-start gap-4 rounded-2xl bg-primary-foreground/10 p-6"><Sparkles className="mt-1 size-5 shrink-0 text-accent" /><div><h3 className="font-serif text-xl">Why these books?</h3><p className="mt-2 leading-relaxed text-primary-foreground/70">These recommendations were selected based on semantic similarity between the themes, descriptions, genres, and content of the books.</p></div></div></div></section>}
 
-      <footer id="about" className="border-t border-border"><div className="mx-auto flex max-w-7xl flex-col gap-10 px-5 py-14 lg:px-8"><div className="flex flex-col justify-between gap-8 md:flex-row"><div><div className="flex items-center gap-2 font-serif text-xl font-bold"><BookOpen className="size-5" />BookMind</div><p className="mt-3 text-sm text-muted-foreground">Discover books. Explore ideas. Find your next story.</p></div><nav className="flex flex-wrap gap-6 text-sm"><a href="#about">About</a><a href="#explore">Explore</a><a href="#recommendations">Recommendations</a><a href="#">GitHub</a><a href="#">Contact</a></nav></div><p className="border-t border-border pt-7 text-sm text-muted-foreground">© 2026 BookMind — AI-Powered Book Recommendation System</p></div></footer>
+      <footer id="about" className="border-t border-border"><div className="mx-auto flex max-w-7xl flex-col gap-10 px-5 py-14 lg:px-8"><div className="flex flex-col justify-between gap-8 md:flex-row"><div><div className="flex items-center gap-2 font-serif text-xl font-bold"><BookOpen className="size-5" />BookMind</div><p className="mt-3 text-sm text-muted-foreground">Discover books. Explore ideas. Find your next story.</p></div><nav className="flex flex-wrap items-center gap-6 text-sm"><a href="#about">About</a><a href="#explore">Explore</a><button type="button" onClick={openRecommendations}>Recommendations</button><a href="#">GitHub</a><a href="#">Contact</a></nav></div><p className="border-t border-border pt-7 text-sm text-muted-foreground">© 2026 BookMind — AI-Powered Book Recommendation System</p></div></footer>
     </main>
   )
 }
