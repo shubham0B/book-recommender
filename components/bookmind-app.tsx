@@ -291,18 +291,8 @@ function BookCard({
   onToggleLike?: (book: Book) => void;
   onCoverFailed?: (bookKey: string) => void;
 }) {
-  const [failed, setFailed] = useState(false)
-  
-  if (failed) return null;
-
-  const bookKey = `${book.title}-${book.isbn || ''}`;
   const isExternal = book.source === 'Google Books'
   const displayRating = typeof book.rating === 'number' ? book.rating.toFixed(1) : (Number(book.rating) || 4.5).toFixed(1)
-
-  const handleFailure = () => {
-    setFailed(true)
-    onCoverFailed?.(bookKey)
-  }
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl relative">
@@ -335,7 +325,6 @@ function BookCard({
           genre={book.genre}
           alt={`Cover of ${book.title}`} 
           className="mx-auto aspect-[2/3] h-64 rounded-md object-cover shadow-lg transition duration-500 group-hover:scale-[1.03]"
-          onCoverFailed={handleFailure} 
         />
       </button>
       <div className="flex flex-1 flex-col gap-3 p-5">
