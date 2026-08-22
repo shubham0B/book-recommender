@@ -129,6 +129,39 @@ def debug_db():
         info["chroma_error"] = str(e)
     return info
 
+@app.get("/extract_now")
+def extract_now():
+    import zipfile, traceback, shutil, ingestion
+    logs = []
+    try:
+        logs.append(f"ZIP_PATH: {ingestion.ZIP_PATH}, exists: {os.path.exists(ingestion.ZIP_PATH)}, size: {os.path.getsize(ingestion.ZIP_PATH) if os.path.exists(ingestion.ZIP_PATH) else 0}")
+        if os.path.exists(ingestion.ZIP_PATH):
+            with zipfile.ZipFile(ingestion.ZIP_PATH, 'r') as z:
+                logs.append(f"Zip namelist count: {len(z.namelist())}")
+                logs.append(f"First 5 files in zip: {z.namelist()[:5]}")
+                target = os.path.dirname(__file__)
+                logs.append(f"Extracting to target: {target}")
+                z.extractall(target)
+                logs.append("Extraction completed without exception")
+        
+        logs.append(f"Post-extract CHROMA_DIR: {ingestion.CHROMA_DIR}, exists: {os.path.exists(ingestion.CHROMA_DIR)}")
+        if os.path.exists(ingestion.CHROMA_DIR):
+            logs.append(f"Files in CHROMA_DIR: {os.listdir(ingestion.CHROMA_DIR)}")
+            if os.path.exists(ingestion.SQLITE_PATH):
+                logs.append(f"SQLITE_PATH size: {os.path.getsize(ingestion.SQLITE_PATH)}")
+                
+        # Re-initialize Chroma
+        ingestion.chroma_client = chromadb.PersistentClient(path=ingestion.CHROMA_DIR)
+        ingestion.books_collection = ingestion.chroma_client.get_or_create_collection(
+            name=ingestion.COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"}
+        )
+        logs.append(f"New books_collection count: {ingestion.books_collection.count()}")
+    except Exception as e:
+        logs.append(f"ERROR: {str(e)}")
+        logs.append(traceback.format_exc())
+    return {"logs": logs}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
