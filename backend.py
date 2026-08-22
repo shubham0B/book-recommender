@@ -103,6 +103,32 @@ def health():
         "zip_exists": os.path.exists(ingestion.ZIP_PATH)
     }
 
+@app.get("/debug_db")
+def debug_db():
+    import sqlite3, ingestion
+    info = {}
+    info["chroma_dir"] = ingestion.CHROMA_DIR
+    info["chroma_dir_exists"] = os.path.exists(ingestion.CHROMA_DIR)
+    info["chroma_dir_files"] = os.listdir(ingestion.CHROMA_DIR) if os.path.exists(ingestion.CHROMA_DIR) else []
+    info["sqlite_path"] = ingestion.SQLITE_PATH
+    info["sqlite_exists"] = os.path.exists(ingestion.SQLITE_PATH)
+    if os.path.exists(ingestion.SQLITE_PATH):
+        info["sqlite_size"] = os.path.getsize(ingestion.SQLITE_PATH)
+        try:
+            conn = sqlite3.connect(ingestion.SQLITE_PATH)
+            cur = conn.cursor()
+            info["collections"] = cur.execute("SELECT id, name FROM collections").fetchall()
+            info["embeddings_count"] = cur.execute("SELECT count(*) FROM embeddings").fetchone()[0]
+            conn.close()
+        except Exception as e:
+            info["sqlite_error"] = str(e)
+    try:
+        info["chroma_client_collections"] = [c.name for c in ingestion.chroma_client.list_collections()]
+        info["books_collection_count"] = ingestion.books_collection.count()
+    except Exception as e:
+        info["chroma_error"] = str(e)
+    return info
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
