@@ -31,13 +31,13 @@ CHROMA_DIR = os.getenv("CHROMA_DB_PATH", os.path.join(os.path.dirname(__file__),
 ZIP_PATH = os.path.join(os.path.dirname(__file__), "chroma_db.zip")
 SQLITE_PATH = os.path.join(CHROMA_DIR, "chroma.sqlite3")
 
-# Automatically extract database if chroma.sqlite3 is missing and zip file is present
-if (not os.path.exists(SQLITE_PATH) or os.path.getsize(SQLITE_PATH) < 1000) and os.path.exists(ZIP_PATH):
+# Automatically extract database if chroma.sqlite3 is missing or is an empty initialization (<50MB)
+if (not os.path.exists(SQLITE_PATH) or os.path.getsize(SQLITE_PATH) < 50_000_000) and os.path.exists(ZIP_PATH):
     import zipfile
     print(f"[Startup] Extracting library database from {ZIP_PATH}...")
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
         zip_ref.extractall(os.path.dirname(__file__))
-    print(f"[Startup] Database extraction complete! Database exists: {os.path.exists(SQLITE_PATH)}")
+    print(f"[Startup] Database extraction complete! Database size: {os.path.getsize(SQLITE_PATH) if os.path.exists(SQLITE_PATH) else 0}")
 
 COLLECTION_NAME = "bookmind_library"
 
@@ -52,9 +52,10 @@ def ensure_database_loaded():
     """Self-healing function to verify ChromaDB collection has books, extracting if needed."""
     global chroma_client, books_collection
     try:
-        if books_collection.count() == 0 and os.path.exists(ZIP_PATH):
+        sqlite_size = os.path.getsize(SQLITE_PATH) if os.path.exists(SQLITE_PATH) else 0
+        if sqlite_size < 50_000_000 and os.path.exists(ZIP_PATH):
             import zipfile
-            print(f"[Self-Healing] Database collection is 0. Extracting {ZIP_PATH} to {os.path.dirname(__file__)}...")
+            print(f"[Self-Healing] Database is empty ({sqlite_size} bytes). Extracting {ZIP_PATH}...")
             with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
                 zip_ref.extractall(os.path.dirname(__file__))
             chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
@@ -62,7 +63,7 @@ def ensure_database_loaded():
                 name=COLLECTION_NAME,
                 metadata={"hnsw:space": "cosine"}
             )
-            print(f"[Self-Healing] Extracted! New collection count: {books_collection.count()}")
+            print(f"[Self-Healing] Extraction complete! Collection count: {books_collection.count()}")
     except Exception as e:
         print(f"[Self-Healing Error]: {e}")
     return books_collection.count()
