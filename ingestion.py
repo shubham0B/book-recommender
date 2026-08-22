@@ -9,7 +9,12 @@ from typing import Optional, List, Dict, Any, Tuple, Set
 from dotenv import load_dotenv
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+try:
+    from fastembed import TextEmbedding
+    _USE_FASTEMBED = True
+except ImportError:
+    from sentence_transformers import SentenceTransformer
+    _USE_FASTEMBED = False
 
 load_dotenv()
 
@@ -36,8 +41,6 @@ if not os.path.exists(CHROMA_DIR) and os.path.exists(ZIP_PATH):
 COLLECTION_NAME = "bookmind_library"
 
 # Initialize ChromaDB persistent client
-
-# Initialize ChromaDB persistent client
 chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
 books_collection = chroma_client.get_or_create_collection(
     name=COLLECTION_NAME,
@@ -51,14 +54,18 @@ _QUERY_CACHE_MAX_SIZE = 1000
 # In-memory Google Books API Response Cache (maps query_key -> (timestamp, List[items]))
 _GOOGLE_BOOKS_QUERY_CACHE: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 
-# Initialize SentenceTransformer model (384-dimensional dense embeddings)
-_EMBEDDING_MODEL: Optional[SentenceTransformer] = None
+# Initialize lightweight embedding model (384-dimensional dense embeddings)
+_EMBEDDING_MODEL: Any = None
 
-def get_embedding_model() -> SentenceTransformer:
+def get_embedding_model() -> Any:
     global _EMBEDDING_MODEL
     if _EMBEDDING_MODEL is None:
-        print("[Embedding Model] Loading SentenceTransformer embedding model (all-MiniLM-L6-v2)...")
-        _EMBEDDING_MODEL = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        if _USE_FASTEMBED:
+            print("[Embedding Model] Loading ultra-low-memory FastEmbed ONNX model (all-MiniLM-L6-v2)...")
+            _EMBEDDING_MODEL = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        else:
+            print("[Embedding Model] Loading SentenceTransformer embedding model (all-MiniLM-L6-v2)...")
+            _EMBEDDING_MODEL = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     return _EMBEDDING_MODEL
 
 
@@ -72,7 +79,10 @@ def get_or_create_query_embedding(query_text: str) -> List[float]:
         return _QUERY_EMBEDDING_CACHE[clean_q]
 
     model = get_embedding_model()
-    vec = model.encode([query_text], normalize_embeddings=True)[0].tolist()
+    if _USE_FASTEMBED:
+        vec = list(model.embed([clean_q]))[0].tolist()
+    else:
+        vec = model.encode([clean_q], normalize_embeddings=True)[0].tolist()
 
     if len(_QUERY_EMBEDDING_CACHE) >= _QUERY_CACHE_MAX_SIZE:
         # Evict oldest entries
