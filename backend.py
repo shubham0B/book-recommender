@@ -151,6 +151,7 @@ def extract_now():
                 logs.append(f"SQLITE_PATH size: {os.path.getsize(ingestion.SQLITE_PATH)}")
                 
         # Re-initialize Chroma
+        import chromadb
         ingestion.chroma_client = chromadb.PersistentClient(path=ingestion.CHROMA_DIR)
         ingestion.books_collection = ingestion.chroma_client.get_or_create_collection(
             name=ingestion.COLLECTION_NAME,
