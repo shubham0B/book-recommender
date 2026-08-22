@@ -48,6 +48,25 @@ books_collection = chroma_client.get_or_create_collection(
     metadata={"hnsw:space": "cosine"}
 )
 
+def ensure_database_loaded():
+    """Self-healing function to verify ChromaDB collection has books, extracting if needed."""
+    global chroma_client, books_collection
+    try:
+        if books_collection.count() == 0 and os.path.exists(ZIP_PATH):
+            import zipfile
+            print(f"[Self-Healing] Database collection is 0. Extracting {ZIP_PATH} to {os.path.dirname(__file__)}...")
+            with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
+                zip_ref.extractall(os.path.dirname(__file__))
+            chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
+            books_collection = chroma_client.get_or_create_collection(
+                name=COLLECTION_NAME,
+                metadata={"hnsw:space": "cosine"}
+            )
+            print(f"[Self-Healing] Extracted! New collection count: {books_collection.count()}")
+    except Exception as e:
+        print(f"[Self-Healing Error]: {e}")
+    return books_collection.count()
+
 # In-memory Query Embedding Cache (maps query_text -> 384-dim list)
 _QUERY_EMBEDDING_CACHE: Dict[str, List[float]] = {}
 _QUERY_CACHE_MAX_SIZE = 1000

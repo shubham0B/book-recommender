@@ -35,7 +35,8 @@ from ingestion import (
     MIN_QUALITY_CANDIDATES,
     GOOGLE_BOOKS_MAX_RESULTS,
     SIMILAR_THRESHOLD,
-    SIMILAR_MIN_QUALITY
+    SIMILAR_MIN_QUALITY,
+    ensure_database_loaded
 )
 
 load_dotenv()
@@ -85,6 +86,22 @@ def filter_books_with_valid_covers(books: List[Dict[str, Any]], limit: int) -> L
     return [b for i, b in valid_books]
 
 app = FastAPI(title="BookMind Dynamic Semantic Recommendation API")
+
+@app.on_event("startup")
+def startup_db_check():
+    count = ensure_database_loaded()
+    print(f"[Backend Startup] Verified database loaded with {count} books.")
+
+@app.get("/health")
+def health():
+    import ingestion
+    count = ensure_database_loaded()
+    return {
+        "status": "healthy",
+        "books_count": count,
+        "sqlite_exists": os.path.exists(ingestion.SQLITE_PATH),
+        "zip_exists": os.path.exists(ingestion.ZIP_PATH)
+    }
 
 app.add_middleware(
     CORSMiddleware,
