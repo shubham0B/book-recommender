@@ -29,14 +29,15 @@ CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 # Path configuration
 CHROMA_DIR = os.getenv("CHROMA_DB_PATH", os.path.join(os.path.dirname(__file__), "chroma_db"))
 ZIP_PATH = os.path.join(os.path.dirname(__file__), "chroma_db.zip")
+SQLITE_PATH = os.path.join(CHROMA_DIR, "chroma.sqlite3")
 
-# Automatically extract database if running in cloud container with only zip file
-if not os.path.exists(CHROMA_DIR) and os.path.exists(ZIP_PATH):
+# Automatically extract database if chroma.sqlite3 is missing and zip file is present
+if (not os.path.exists(SQLITE_PATH) or os.path.getsize(SQLITE_PATH) < 1000) and os.path.exists(ZIP_PATH):
     import zipfile
     print(f"[Startup] Extracting library database from {ZIP_PATH}...")
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
         zip_ref.extractall(os.path.dirname(__file__))
-    print("[Startup] Database extraction complete!")
+    print(f"[Startup] Database extraction complete! Database exists: {os.path.exists(SQLITE_PATH)}")
 
 COLLECTION_NAME = "bookmind_library"
 
