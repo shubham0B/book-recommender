@@ -9,6 +9,11 @@ __v0_jsx-dev-runtime.ts
 # Environment variables
 .env*.local
 
+# Python & ChromaDB
+__pycache__/
+chroma_db/
+*.pyc
+
 # Common ignores
 node_modules
 .next/

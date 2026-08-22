@@ -1,0 +1,15 @@
+pandas
+numpy
+python-dotenv
+langchain-community
+langchain-huggingface
+langchain-text-splitters
+langchain-chroma
+sentence-transformers
+chromadb
+fastapi
+uvicorn
+supabase
+google-generativeai
+python-multipart
+httpx
