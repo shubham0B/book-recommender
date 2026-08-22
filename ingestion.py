@@ -501,6 +501,95 @@ class BookIngestionService:
         _GOOGLE_BOOKS_QUERY_CACHE[cache_key] = (now, all_items)
         return all_items
 
+    def fetch_from_open_library(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fetch books directly from OpenLibrary Search API."""
+        try:
+            resp = requests.get(
+                "https://openlibrary.org/search.json",
+                params={"q": query, "limit": limit},
+                headers={"User-Agent": "BookMindApp/2.0 (https://bookmind.app)"},
+                timeout=6.0
+            )
+            if resp.status_code != 200:
+                return []
+            docs = resp.json().get("docs", [])
+            records = []
+            for doc in docs:
+                title = normalize_string(doc.get("title", ""))
+                if not title or len(title) < 2:
+                    continue
+                author_names = doc.get("author_name", [])
+                authors_str = ", ".join(author_names[:2]) if author_names else "Unknown Author"
+                
+                # ISBN and Covers
+                isbn_list = doc.get("isbn", [])
+                clean_isbn_13 = ""
+                clean_isbn_10 = ""
+                for raw_isbn in isbn_list:
+                    c = re.sub(r'[^0-9X]', '', str(raw_isbn)).strip()
+                    if len(c) == 13 and not clean_isbn_13:
+                        clean_isbn_13 = c
+                    elif len(c) == 10 and not clean_isbn_10:
+                        clean_isbn_10 = c
+                
+                cover_id = doc.get("cover_i")
+                if cover_id:
+                    thumb = f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"
+                elif clean_isbn_13:
+                    thumb = f"https://covers.openlibrary.org/b/isbn/{clean_isbn_13}-L.jpg"
+                elif clean_isbn_10:
+                    thumb = f"https://covers.openlibrary.org/b/isbn/{clean_isbn_10}-L.jpg"
+                else:
+                    thumb = ""
+                
+                subjects = doc.get("subject", [])
+                raw_cat_str = ", ".join(subjects[:5]) if subjects else "General Literature"
+                
+                primary_genre, genres_list = classify_book_genres(raw_cat_str, title, raw_cat_str)
+                
+                first_sentence = doc.get("first_sentence", "")
+                if isinstance(first_sentence, dict):
+                    first_sentence = first_sentence.get("value", "")
+                elif isinstance(first_sentence, list):
+                    first_sentence = " ".join(first_sentence)
+                
+                desc = first_sentence or f"A celebrated work by {authors_str} exploring {primary_genre}."
+                
+                ol_key = doc.get("key", "").replace("/", "_")
+                doc_id = f"ol_{ol_key}" if ol_key else f"isbn_{clean_isbn_13 or clean_isbn_10 or make_dedup_key(title, authors_str)}"
+                
+                semantic_doc = build_semantic_text(title, authors_str, primary_genre, raw_cat_str, desc)
+                
+                records.append({
+                    "id": doc_id,
+                    "google_books_id": "",
+                    "title": title,
+                    "authors": authors_str,
+                    "description": desc[:240],
+                    "full_description": desc,
+                    "categories": raw_cat_str,
+                    "genre": primary_genre,
+                    "genres_json": json.dumps(genres_list),
+                    "publisher": doc.get("publisher", [""])[0] if doc.get("publisher") else "",
+                    "published_date": str(doc.get("first_publish_year", "")),
+                    "isbn_10": clean_isbn_10,
+                    "isbn_13": clean_isbn_13,
+                    "page_count": doc.get("number_of_pages_median") or 0,
+                    "language": doc.get("language", ["en"])[0] if doc.get("language") else "en",
+                    "thumbnail": thumb,
+                    "preview_link": "",
+                    "info_link": f"https://openlibrary.org{doc.get('key', '')}",
+                    "source": "OpenLibrary",
+                    "rating": 4.8 if is_famous_author(authors_str) else 4.5,
+                    "dedup_key": make_dedup_key(title, authors_str),
+                    "created_at": int(time.time()),
+                    "semantic_doc": semantic_doc
+                })
+            return records
+        except Exception as e:
+            print(f"[OpenLibrary API Error]: {e}")
+            return []
+
     def clean_and_normalize_volume(
         self,
         item: Dict[str, Any],
@@ -670,29 +759,43 @@ class BookIngestionService:
         # If specific book title query with few items, also fetch related domain candidates to enrich recommendations
         if len(raw_items) < 20 and not genre_filter and len(clean_q.split()) <= 4:
             subject_query = f"{clean_q} classic popular"
-            extra_items = self.fetch_from_google_books(subject_query, max_results=20)
-            raw_items.extend(extra_items)
+        print(f"[Ingestion Pipeline] Searching online for '{clean_q}' across Google Books and OpenLibrary...")
 
-        if not raw_items:
-            print(f"[Ingestion Pipeline] 0 candidates found from Google Books for query '{clean_q}'.")
-            return {"status": "success", "imported": 0, "duplicates": 0, "total_books": self.collection.count()}
-
-        # 2. Get existing keys in vector store to avoid duplicates
         existing_ids, existing_keys = self.get_existing_ids_and_keys()
 
-        valid_records: List[Dict[str, Any]] = []
+        # Fetch from both Google Books and OpenLibrary
+        gb_items = self.fetch_from_google_books(clean_q, max_results=GOOGLE_BOOKS_MAX_RESULTS, genre_filter=genre_filter)
+        ol_records = self.fetch_from_open_library(clean_q, limit=15)
+
+        valid_records = []
         dup_count = 0
 
-        for item in raw_items:
+        # Process Google Books candidates
+        for item in gb_items:
             rec = self.clean_and_normalize_volume(item, fallback_genre=genre_filter)
             if not rec:
                 continue
-
-            # Multi-level Deduplication: Check Google ID, ISBN13, ISBN10, Dedup Key
             if rec["id"] in existing_ids or (rec["google_books_id"] and rec["google_books_id"] in existing_keys):
                 dup_count += 1
                 continue
-            if rec["dedup_key"] in existing_keys:
+            if rec["dedup_key"] in existing_keys or (rec["isbn_13"] and rec["isbn_13"] in existing_keys):
+                dup_count += 1
+                continue
+            if rec["isbn_10"] and rec["isbn_10"] in existing_keys:
+                dup_count += 1
+                continue
+
+            existing_ids.add(rec["id"])
+            existing_keys.add(rec["dedup_key"])
+            valid_records.append(rec)
+            if len(valid_records) >= count:
+                break
+
+        # Process OpenLibrary candidates
+        for rec in ol_records:
+            if len(valid_records) >= count:
+                break
+            if rec["id"] in existing_ids or rec["dedup_key"] in existing_keys:
                 dup_count += 1
                 continue
             if rec["isbn_13"] and rec["isbn_13"] in existing_keys:
@@ -702,58 +805,23 @@ class BookIngestionService:
                 dup_count += 1
                 continue
 
-            # Record is genuinely new
             existing_ids.add(rec["id"])
             existing_keys.add(rec["dedup_key"])
-            if rec["google_books_id"]:
-                existing_keys.add(rec["google_books_id"])
-            if rec["isbn_13"]:
-                existing_keys.add(rec["isbn_13"])
-            if rec["isbn_10"]:
-                existing_keys.add(rec["isbn_10"])
-
             valid_records.append(rec)
-            if len(valid_records) >= count:
-                break
 
-        # If specific book query yielded fewer than 8 valid clean books, enrich with related domain books
-        if len(valid_records) < 8 and valid_records:
-            enrich_genre = genre_filter or valid_records[0].get("genre")
-            enrich_q = f"subject:{enrich_genre.lower()}" if enrich_genre and enrich_genre not in ['Fiction', 'Nonfiction'] else f"{clean_q} literature"
-            more_items = self.fetch_from_google_books(enrich_q, max_results=20, genre_filter=enrich_genre)
-            for item in more_items:
-                rec = self.clean_and_normalize_volume(item, fallback_genre=enrich_genre)
-                if not rec:
-                    continue
-                if rec["id"] in existing_ids or (rec["google_books_id"] and rec["google_books_id"] in existing_keys):
-                    dup_count += 1
-                    continue
-                if rec["dedup_key"] in existing_keys or (rec["isbn_13"] and rec["isbn_13"] in existing_keys):
-                    dup_count += 1
-                    continue
-                existing_ids.add(rec["id"])
-                existing_keys.add(rec["dedup_key"])
-                if rec["google_books_id"]:
-                    existing_keys.add(rec["google_books_id"])
-                if rec["isbn_13"]:
-                    existing_keys.add(rec["isbn_13"])
-                valid_records.append(rec)
-                if len(valid_records) >= count:
-                    break
-
-        print(f"[Google Books API] Fetched candidates for '{clean_q}'.")
-        print(f"[Deduplication] Skipped {dup_count} existing/duplicate books.")
+        print(f"[Online Search] Found {len(valid_records)} new books online for '{clean_q}' ({dup_count} duplicates skipped).")
 
         if not valid_records:
-            print(f"[Embedding] 0 new books to embed. All candidates already exist in database.")
             return {"status": "success", "imported": 0, "duplicates": dup_count, "total_books": self.collection.count()}
 
-        # 3. Batch Generate Vector Embeddings ONLY for genuinely new books
-        print(f"[Embedding] Generating dense vector embeddings for {len(valid_records)} NEW books via SentenceTransformer...")
+        # Generate embeddings with FastEmbed or SentenceTransformers
         semantic_texts = [r["semantic_doc"] for r in valid_records]
-        embeddings = self.embedding_model.encode(semantic_texts, show_progress_bar=False, normalize_embeddings=True)
+        if _USE_FASTEMBED:
+            embeddings = [list(e) for e in self.embedding_model.embed(semantic_texts)]
+        else:
+            embeddings = self.embedding_model.encode(semantic_texts, show_progress_bar=False, normalize_embeddings=True)
 
-        # 4. Insert into ChromaDB
+        # Insert into ChromaDB
         ids = [r["id"] for r in valid_records]
         documents = semantic_texts
         metadatas = []

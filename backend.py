@@ -390,22 +390,33 @@ def vector_search_books(
 
     print(f"[Vector Search] Query: '{clean_q or 'browse'}' | Active Genres: {active_genres or 'None'} | Retrieved: {len(books_found)} | High-Quality Matches (sim >= {min_similarity:.2f}): {high_quality_count}")
 
-    # 4. Dynamic Quality Evaluation
-    if is_general_browse and len(books_found) >= limit:
-        pass
-    elif allow_dynamic_ingest and (high_quality_count < MIN_QUALITY_CANDIDATES or len(books_found) < 16):
-        print(f"[Decision] Quality threshold unmet ({high_quality_count} < {MIN_QUALITY_CANDIDATES} matches, count={len(books_found)}). Calling Google Books API...")
+    # 4. Dynamic Online Search & Ingestion Trigger
+    q_tokens = [w for w in re.findall(r'[a-zA-Z0-9]+', clean_q.lower()) if len(w) > 2]
+    is_specific_title_query = len(q_tokens) >= 2 and clean_q.lower() not in ['popular', 'classic literature', 'all', 'books']
+    has_exact_title_match = any(
+        all(w in b.get("title", "").lower() for w in q_tokens)
+        for b in books_found[:10]
+    )
+
+    should_search_online = allow_dynamic_ingest and (
+        (is_specific_title_query and not has_exact_title_match) or
+        (high_quality_count < MIN_QUALITY_CANDIDATES) or
+        (len(books_found) < 16 and not is_general_browse)
+    )
+
+    if should_search_online:
+        print(f"[Online Search] Searching live web APIs (OpenLibrary + Google Books) for '{clean_q}'...")
         ingest_genre = active_genres[0] if active_genres else None
         api_query = clean_q if (clean_q and clean_q.lower() != 'popular') else (ingest_genre or "classic literature")
         
         ingest_res = ingestion_service.ingest_books(
             query=api_query,
-            count=GOOGLE_BOOKS_MAX_RESULTS,
+            count=15,
             genre_filter=ingest_genre
         )
         
         if ingest_res.get("imported", 0) > 0:
-            print(f"[Unified Search] {ingest_res['imported']} new books ingested. Re-running vector search across unified collection...")
+            print(f"[Unified Search] {ingest_res['imported']} new books ingested online. Re-running vector search...")
             return vector_search_books(
                 query=query,
                 target_genres=target_genres,
@@ -414,9 +425,9 @@ def vector_search_books(
                 allow_dynamic_ingest=False
             )
         else:
-            print(f"[Decision] No new books imported from Google Books. Returning best existing vector results.")
+            print(f"[Online Search] No new books imported from web APIs. Returning best existing vector results.")
     else:
-        print(f"[Decision] Quality threshold satisfied ({high_quality_count} >= {MIN_QUALITY_CANDIDATES} high-quality matches). Google Books API NOT called.")
+        print(f"[Decision] Query satisfied from local library. Web API not needed.")
 
     # Sort unified results: exact/high similarity first, then rating
     books_found.sort(key=lambda b: (b.get("similarity", 0.70) * 2.0 + (b.get("rating", 4.2) * 0.1)), reverse=True)
