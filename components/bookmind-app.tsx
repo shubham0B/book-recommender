@@ -426,7 +426,7 @@ export function BookMindApp() {
   }
 
   useEffect(() => {
-    fetch('http://localhost:8000/categories')
+    fetch('https://fifty-swans-post.loca.lt/categories', { headers: { 'Bypass-Tunnel-Reminder': 'true',  'Bypass-Tunnel-Reminder': 'true' } })
       .then(res => res.json())
       .then(data => { 
         if (data.categories && data.categories.length > 0) {
@@ -435,9 +435,9 @@ export function BookMindApp() {
       })
       .catch(err => console.error('Could not connect to backend categories:', err))
       
-    fetch('http://localhost:8000/recommend', {
+    fetch('https://fifty-swans-post.loca.lt/recommend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Bypass-Tunnel-Reminder': 'true',  'Content-Type': 'application/json' },
       body: JSON.stringify({ query: 'popular', category: 'All', tone: 'All', limit: 120 })
     })
       .then(res => res.json())
@@ -482,7 +482,7 @@ export function BookMindApp() {
           isbn: b.isbn
         }))
 
-      fetch(`http://localhost:8000/api/books/suggest?q=${encodeURIComponent(trimmed)}`)
+      fetch(`https://fifty-swans-post.loca.lt/api/books/suggest?q=${encodeURIComponent(trimmed)}`, { headers: { 'Bypass-Tunnel-Reminder': 'true',  'Bypass-Tunnel-Reminder': 'true' } })
         .then(res => res.json())
         .then(data => {
           if (data.suggestions && data.suggestions.length > 0) {
@@ -505,7 +505,7 @@ export function BookMindApp() {
       const activeGenresList = selectedGenres.length > 0 ? selectedGenres : (category && category !== 'All' ? [category] : []);
       const genresParam = encodeURIComponent(activeGenresList.join(','));
 
-      fetch(`http://localhost:8000/api/books/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}&genres=${genresParam}`)
+      fetch(`https://fifty-swans-post.loca.lt/api/books/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}&genres=${genresParam}`, { headers: { 'Bypass-Tunnel-Reminder': 'true',  'Bypass-Tunnel-Reminder': 'true' } })
         .then(res => res.json())
         .then(data => {
           const booksList = data.external_results?.length > 0 || data.local_results?.length > 0 
@@ -564,9 +564,9 @@ export function BookMindApp() {
       return
     }
 
-    fetch('http://localhost:8000/recommend', {
+    fetch('https://fifty-swans-post.loca.lt/recommend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Bypass-Tunnel-Reminder': 'true',  'Content-Type': 'application/json' },
       body: JSON.stringify({ query: 'popular', categories: genres, tone: 'All', limit: 120 })
     })
       .then(res => res.json())
@@ -631,7 +631,7 @@ export function BookMindApp() {
     const genresParam = encodeURIComponent(activeGenresList.join(','));
 
     if (currentQuery && currentQuery.toLowerCase() !== 'popular') {
-        fetch(`http://localhost:8000/api/books/search?q=${encodeURIComponent(currentQuery)}&category=${encodeURIComponent(currentCategory)}&genres=${genresParam}&limit=120`)
+        fetch(`https://fifty-swans-post.loca.lt/api/books/search?q=${encodeURIComponent(currentQuery)}&category=${encodeURIComponent(currentCategory)}&genres=${genresParam}&limit=120`, { headers: { 'Bypass-Tunnel-Reminder': 'true',  'Bypass-Tunnel-Reminder': 'true' } })
           .then(res => res.json())
           .then(data => {
              const booksList = data.books && data.books.length > 0
@@ -662,9 +662,9 @@ export function BookMindApp() {
               setIsLoading(false)
           })
     } else {
-        fetch('http://localhost:8000/recommend', {
+        fetch('https://fifty-swans-post.loca.lt/recommend', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Bypass-Tunnel-Reminder': 'true',  'Content-Type': 'application/json' },
           body: JSON.stringify({ query: 'popular', category: currentCategory, categories: activeGenresList, tone: 'All', limit: 120 })
         })
           .then(res => res.json())
@@ -767,9 +767,9 @@ export function BookMindApp() {
 
   const fetchSimilarBooksFor = (book: Book) => {
     setIsLoadingSimilar(true)
-    fetch('http://localhost:8000/api/books/similar', {
+    fetch('https://fifty-swans-post.loca.lt/api/books/similar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Bypass-Tunnel-Reminder': 'true',  'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: book.title,
         description: book.description || '',
