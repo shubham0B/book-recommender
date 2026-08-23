@@ -83,7 +83,7 @@ def get_embedding_model() -> Any:
     if _EMBEDDING_MODEL is None:
         if _USE_FASTEMBED:
             print("[Embedding Model] Loading ultra-low-memory FastEmbed ONNX model (all-MiniLM-L6-v2)...")
-            _EMBEDDING_MODEL = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            _EMBEDDING_MODEL = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2", threads=1)
         else:
             print("[Embedding Model] Loading SentenceTransformer embedding model (all-MiniLM-L6-v2)...")
             _EMBEDDING_MODEL = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
@@ -817,7 +817,7 @@ class BookIngestionService:
         # Generate embeddings with FastEmbed or SentenceTransformers
         semantic_texts = [r["semantic_doc"] for r in valid_records]
         if _USE_FASTEMBED:
-            embeddings = [list(e) for e in self.embedding_model.embed(semantic_texts)]
+            embeddings = [list(e) for e in self.embedding_model.embed(semantic_texts, batch_size=1)]
         else:
             embeddings = self.embedding_model.encode(semantic_texts, show_progress_bar=False, normalize_embeddings=True)
 
