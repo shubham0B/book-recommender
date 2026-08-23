@@ -291,7 +291,7 @@ function BookCard({
   onToggleLike?: (book: Book) => void;
   onCoverFailed?: (bookKey: string) => void;
 }) {
-  const isExternal = book.source === 'Google Books'
+  const isExternal = book.source === 'Google Books' || book.source === 'OpenLibrary'
   const displayRating = typeof book.rating === 'number' ? book.rating.toFixed(1) : (Number(book.rating) || 4.5).toFixed(1)
 
   return (
