@@ -854,7 +854,7 @@ class BookIngestionService:
 
         self.collection.add(
             ids=ids,
-            embeddings=embeddings.tolist(),
+            embeddings=embeddings.tolist() if hasattr(embeddings, 'tolist') else embeddings,
             metadatas=metadatas,
             documents=documents
         )
