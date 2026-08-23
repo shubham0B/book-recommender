@@ -1076,17 +1076,15 @@ export function BookMindApp() {
                 Liked Books ({favorites.length})
               </button>
               
-              <Button
-                variant="outline"
-                className="h-9 rounded-full px-4 border border-border bg-card hover:border-emerald-500 hover:text-emerald-600 transition flex items-center gap-1.5 shadow-sm text-sm"
-                onClick={() => {
-                  const genreTarget = selectedGenres.length === 1 ? selectedGenres[0] : (category && category !== 'All' ? category : 'Classics');
-                  window.open(`https://www.gutenberg.org/ebooks/search/?query=${encodeURIComponent(genreTarget)}`, '_blank', 'noopener,noreferrer');
-                }}
+              <a
+                href={`https://www.gutenberg.org/ebooks/search/?query=${encodeURIComponent(selectedGenres.length === 1 ? selectedGenres[0] : (category && category !== 'All' ? category : 'Classics'))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${buttonVariants({ variant: "outline" })} h-9 rounded-full px-4 border border-border bg-card hover:border-emerald-500 hover:text-emerald-600 transition flex items-center gap-1.5 shadow-sm text-sm`}
               >
                 <BookOpen className="size-3.5 text-emerald-500" />
                 Browse Free {selectedGenres.length === 1 ? selectedGenres[0] : (category && category !== 'All' ? category : 'Classics')}
-              </Button>
+              </a>
               {apiFilters.slice(0, 8).map((filter) => (
                 <button 
                   key={filter} 
