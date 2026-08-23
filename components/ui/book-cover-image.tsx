@@ -142,7 +142,7 @@ export function BookCoverImage({
 
   // 5. Backend Dynamic Cover Proxy
   if (title) {
-    const backendUrl = `https://book-recommender-6cy9.onrender.com/api/books/cover?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author || '')}&isbn=${encodeURIComponent(cleanIsbn || '')}`
+    const backendUrl = `https://web-production-9205dd.up.railway.app/api/books/cover?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author || '')}&isbn=${encodeURIComponent(cleanIsbn || '')}`
     candidates.push(backendUrl)
   }
 

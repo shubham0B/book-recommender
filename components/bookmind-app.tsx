@@ -415,7 +415,7 @@ export function BookMindApp() {
   }
 
   useEffect(() => {
-    fetch('https://book-recommender-6cy9.onrender.com/categories', { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+    fetch('https://web-production-9205dd.up.railway.app/categories', { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
       .then(res => res.json())
       .then(data => { 
         if (data.categories && data.categories.length > 0) {
@@ -424,7 +424,7 @@ export function BookMindApp() {
       })
       .catch(err => console.error('Could not connect to backend categories:', err))
       
-    fetch('https://book-recommender-6cy9.onrender.com/recommend', {
+    fetch('https://web-production-9205dd.up.railway.app/recommend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: 'popular', category: 'All', tone: 'All', limit: 120 })
@@ -471,7 +471,7 @@ export function BookMindApp() {
           isbn: b.isbn
         }))
 
-      fetch(`https://book-recommender-6cy9.onrender.com/api/books/suggest?q=${encodeURIComponent(trimmed)}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+      fetch(`https://web-production-9205dd.up.railway.app/api/books/suggest?q=${encodeURIComponent(trimmed)}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
         .then(res => res.json())
         .then(data => {
           if (data.suggestions && data.suggestions.length > 0) {
@@ -494,7 +494,7 @@ export function BookMindApp() {
       const activeGenresList = selectedGenres.length > 0 ? selectedGenres : (category && category !== 'All' ? [category] : []);
       const genresParam = encodeURIComponent(activeGenresList.join(','));
 
-      fetch(`https://book-recommender-6cy9.onrender.com/api/books/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}&genres=${genresParam}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+      fetch(`https://web-production-9205dd.up.railway.app/api/books/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}&genres=${genresParam}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
         .then(res => res.json())
         .then(data => {
           const booksList = data.external_results?.length > 0 || data.local_results?.length > 0 
@@ -553,7 +553,7 @@ export function BookMindApp() {
       return
     }
 
-    fetch('https://book-recommender-6cy9.onrender.com/recommend', {
+    fetch('https://web-production-9205dd.up.railway.app/recommend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: 'popular', categories: genres, tone: 'All', limit: 120 })
@@ -620,7 +620,7 @@ export function BookMindApp() {
     const genresParam = encodeURIComponent(activeGenresList.join(','));
 
     if (currentQuery && currentQuery.toLowerCase() !== 'popular') {
-        fetch(`https://book-recommender-6cy9.onrender.com/api/books/search?q=${encodeURIComponent(currentQuery)}&category=${encodeURIComponent(currentCategory)}&genres=${genresParam}&limit=120`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+        fetch(`https://web-production-9205dd.up.railway.app/api/books/search?q=${encodeURIComponent(currentQuery)}&category=${encodeURIComponent(currentCategory)}&genres=${genresParam}&limit=120`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
           .then(res => res.json())
           .then(data => {
              const booksList = data.books && data.books.length > 0
@@ -651,7 +651,7 @@ export function BookMindApp() {
               setIsLoading(false)
           })
     } else {
-        fetch('https://book-recommender-6cy9.onrender.com/recommend', {
+        fetch('https://web-production-9205dd.up.railway.app/recommend', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: 'popular', category: currentCategory, categories: activeGenresList, tone: 'All', limit: 120 })
@@ -756,7 +756,7 @@ export function BookMindApp() {
 
   const fetchSimilarBooksFor = (book: Book) => {
     setIsLoadingSimilar(true)
-    fetch('https://book-recommender-6cy9.onrender.com/api/books/similar', {
+    fetch('https://web-production-9205dd.up.railway.app/api/books/similar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
