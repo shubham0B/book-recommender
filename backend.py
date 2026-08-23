@@ -532,14 +532,110 @@ async def search_books(
     elif category and category.strip() != "All":
         target_genres = [category.strip()]
 
-    if not query and not target_genres:
-        # Default browse (All)
-        books = vector_search_books(query="popular", limit=limit or 120, allow_dynamic_ingest=False)
-    else:
-        books = vector_search_books(query=query, target_genres=target_genres, limit=limit or 120, allow_dynamic_ingest=True)
+    # DIRECT & OPENLIBRARY SEARCH FOR QUERY (Fast, reliable, and prevents memory spikes)
+    if query and len(query) >= 2:
+        results = []
+        seen = set()
+        
+        # 1. Local ChromaDB metadata title search
+        try:
+            data = books_collection.get(
+                where={"title": {"$contains": query.lower()}},
+                limit=30,
+                include=["metadatas"]
+            )
+            for m in data.get("metadatas", []):
+                if m and m.get("title"):
+                    t = m.get("title")
+                    if t.lower() not in seen and not is_bestseller_title(t):
+                        seen.add(t.lower())
+                        results.append({
+                            "id": m.get("isbn_13") or m.get("isbn_10") or t,
+                            "title": t,
+                            "authors": m.get("authors", "Unknown"),
+                            "genre": m.get("genre", "Fiction"),
+                            "thumbnail": m.get("thumbnail", ""),
+                            "rating": 4.5,
+                            "source": "BookMind Library"
+                        })
+        except Exception as e:
+            print(f"ChromaDB local get error: {e}")
+
+        # 2. OpenLibrary Search (Fast, robust keyword & title query without embeddings)
+        if len(results) < 12:
+            try:
+                import httpx
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        "https://openlibrary.org/search.json",
+                        params={"q": query, "limit": 24, "fields": "title,author_name,cover_i,isbn,subject,first_sentence"},
+                        timeout=5.0
+                    )
+                    if resp.status_code == 200:
+                        docs = resp.json().get("docs", [])
+                        for d in docs:
+                            t = d.get("title", "")
+                            if t and t.lower() not in seen and not is_bestseller_title(t):
+                                seen.add(t.lower())
+                                a_list = d.get("author_name", ["Unknown Author"])
+                                a = a_list[0] if isinstance(a_list, list) and a_list else (str(a_list) if a_list else "Unknown Author")
+                                cid = d.get("cover_i")
+                                isbns = d.get("isbn", [])
+                                isbn_val = isbns[0] if isbns and isinstance(isbns, list) else ""
+                                thumb = f"https://covers.openlibrary.org/b/id/{cid}-L.jpg" if cid else (f"https://covers.openlibrary.org/b/isbn/{isbn_val}-L.jpg" if isbn_val else "")
+                                
+                                subjects = d.get("subject", [])
+                                detected_genre = "Literature"
+                                if isinstance(subjects, list):
+                                    subj_str = " ".join(subjects).lower()
+                                    for cg in CURATED_GENRES:
+                                        if cg != "All" and cg.lower() in subj_str:
+                                            detected_genre = cg
+                                            break
+
+                                first_sent = d.get("first_sentence", "")
+                                desc = first_sent[0] if isinstance(first_sent, list) and first_sent else (first_sent if isinstance(first_sent, str) else f"{t} by {a}.")
+
+                                results.append({
+                                    "id": f"ol_{t.replace(' ', '_')}",
+                                    "title": t,
+                                    "authors": a,
+                                    "genre": detected_genre,
+                                    "description": desc,
+                                    "thumbnail": thumb,
+                                    "isbn": isbn_val,
+                                    "rating": 4.5,
+                                    "source": "OpenLibrary",
+                                    "links": {
+                                        "info": f"https://openlibrary.org/search?q={t.replace(' ', '+')}",
+                                        "preview": f"https://openlibrary.org/search?q={t.replace(' ', '+')}"
+                                    }
+                                })
+            except Exception as e:
+                print(f"Direct OpenLibrary search error: {e}")
+                
+        if results:
+            return {
+                "query": query,
+                "books": results,
+                "local_results": [b for b in results if b.get("source") == "BookMind Library"],
+                "external_results": [b for b in results if b.get("source") == "OpenLibrary"],
+                "total_results": len(results),
+                "sources": {"local": len([b for b in results if b.get("source") == "BookMind Library"]), "open_library": len([b for b in results if b.get("source") == "OpenLibrary"])}
+            }
+
+    # Fallback to vector search with exception safety
+    books = []
+    try:
+        if not query and not target_genres:
+            books = vector_search_books(query="popular", limit=limit or 120, allow_dynamic_ingest=False)
+        else:
+            books = vector_search_books(query=query, target_genres=target_genres, limit=limit or 120, allow_dynamic_ingest=False)
+    except Exception as e:
+        print(f"Vector search fallback error: {e}")
 
     local_matches = [b for b in books if b.get("source") == "BookMind Library"]
-    external_matches = [b for b in books if b.get("source") == "Google Books"]
+    external_matches = [b for b in books if b.get("source") == "Google Books" or b.get("source") == "OpenLibrary"]
 
     return {
         "query": query,
