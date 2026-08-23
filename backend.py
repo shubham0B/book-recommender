@@ -651,7 +651,7 @@ def get_similar_books(req: SimilarBooksRequest):
 
 @app.get("/api/books/suggest")
 async def suggest_books(q: str):
-    """Fast autocomplete suggestions using vector store and title index."""
+    """Fast autocomplete suggestions using vector store and OpenLibrary fallback."""
     query = q.strip()
     if not query or len(query) < 2:
         return {"suggestions": []}
@@ -662,7 +662,11 @@ async def suggest_books(q: str):
 
     # Search in ChromaDB metadata
     try:
-        data = books_collection.get(include=["metadatas"], limit=1000)
+        data = books_collection.get(
+            where={"title": {"$contains": q_lower}},
+            limit=30,
+            include=["metadatas"]
+        )
         for m in data.get("metadatas", []):
             if not m:
                 continue
@@ -673,58 +677,53 @@ async def suggest_books(q: str):
                 continue
             if is_bestseller_title(title):
                 continue
-            if q_lower in title.lower() or q_lower in authors.lower():
-                t_lower = title.lower()
-                if t_lower not in seen_titles:
-                    seen_titles.add(t_lower)
-                    suggestions.append({
-                        "title": title,
-                        "author": authors,
-                        "genre": m.get("genre", "Fiction"),
-                        "thumbnail": thumb,
-                        "isbn": m.get("isbn_13") or m.get("isbn_10") or ""
-                    })
-                    if len(suggestions) >= 6:
-                        break
+            
+            t_lower = title.lower()
+            if t_lower not in seen_titles:
+                seen_titles.add(t_lower)
+                suggestions.append({
+                    "title": title,
+                    "author": authors,
+                    "genre": m.get("genre", "Fiction"),
+                    "thumbnail": thumb,
+                    "isbn": m.get("isbn_13") or m.get("isbn_10") or "",
+                    "source": m.get("source", "BookMind Library")
+                })
+                if len(suggestions) >= 8:
+                    break
+                    
+        # Fallback to OpenLibrary if we don't have enough local matches and query is specific
+        if len(suggestions) < 3 and len(query) >= 3:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        "https://openlibrary.org/search.json",
+                        params={"title": query, "limit": 5, "fields": "title,author_name,cover_i"},
+                        timeout=2.0
+                    )
+                    if resp.status_code == 200:
+                        docs = resp.json().get("docs", [])
+                        for d in docs:
+                            t = d.get("title", "")
+                            a = d.get("author_name", ["Unknown"])[0] if d.get("author_name") else "Unknown"
+                            cid = d.get("cover_i")
+                            if t and cid and t.lower() not in seen_titles:
+                                seen_titles.add(t.lower())
+                                suggestions.append({
+                                    "title": t,
+                                    "author": a,
+                                    "genre": "Literature",
+                                    "thumbnail": f"https://covers.openlibrary.org/b/id/{cid}-S.jpg",
+                                    "isbn": "",
+                                    "source": "OpenLibrary"
+                                })
+                                if len(suggestions) >= 8:
+                                    break
+            except Exception as e:
+                print(f"Google books suggestion error: {e}")
+                
     except Exception as e:
-        print(f"Error fetching suggestions from ChromaDB: {e}")
-
-    # Fallback to Google Books intitle if sparse
-    if len(suggestions) < 5:
-        try:
-            params = {"q": f"intitle:{query}", "maxResults": 10, "langRestrict": "en"}
-            api_key = os.getenv("GOOGLE_BOOKS_API_KEY")
-            if api_key:
-                params["key"] = api_key
-            async with httpx.AsyncClient() as client:
-                resp = await client.get("https://www.googleapis.com/books/v1/volumes", params=params, timeout=3.0)
-                if resp.status_code == 200:
-                    items = resp.json().get("items", [])
-                    for it in items:
-                        vol = it.get("volumeInfo", {})
-                        t = vol.get("title", "").strip()
-                        t_lower = t.lower()
-                        if is_bestseller_title(t):
-                            continue
-                        img_links = vol.get("imageLinks", {})
-                        thumb = img_links.get("thumbnail") or img_links.get("smallThumbnail") or ""
-                        if not thumb or not thumb.startswith("http"):
-                            continue
-                        if t and t_lower not in seen_titles:
-                            seen_titles.add(t_lower)
-                            authors = ", ".join(vol.get("authors", [])) or "Unknown Author"
-                            cats = vol.get("categories", ["Fiction"])
-                            suggestions.append({
-                                "title": t,
-                                "author": authors,
-                                "genre": cats[0] if cats else "Fiction",
-                                "thumbnail": thumb,
-                                "isbn": ""
-                            })
-                            if len(suggestions) >= 8:
-                                break
-        except Exception as e:
-            print(f"Google books suggestion error: {e}")
+        print(f"Suggestion error: {e}")
 
     return {"suggestions": suggestions[:8]}
 
