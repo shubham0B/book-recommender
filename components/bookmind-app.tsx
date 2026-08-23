@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { ArrowRight, BookOpen, Heart, Menu, Search, Sparkles, Star, UserRound, X, BookText, SlidersHorizontal, Check, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { BookCoverImage } from '@/components/ui/book-cover-image'
 
 const ALL_GENRES = [
