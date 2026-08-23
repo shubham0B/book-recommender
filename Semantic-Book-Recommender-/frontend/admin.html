@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Book Recommender</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-box">
+      <h2>🔐 Admin Login</h2>
+      <input type="text" id="adminUser" placeholder="Username" />
+      <input type="password" id="adminPass" placeholder="Password" />
+      <button onclick="adminLogin()">Login</button>
+      <p id="loginError" class="login-error hidden">Invalid credentials!</p>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div id="adminDashboard" class="hidden">
+    <div class="admin-header">
+      <h1>📚 Admin Panel</h1>
+      <div class="header-actions">
+        <a href="index.html">👤 User View</a>
+        <button onclick="adminLogout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="admin-container">
+
+      <!-- Add Book Form -->
+      <div class="admin-card">
+        <h2>➕ Add New Book</h2>
+        <form id="addBookForm" onsubmit="addBook(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ISBN13</label>
+              <input type="number" id="isbn13" placeholder="9780000000000" />
+            </div>
+            <div class="form-group">
+              <label>Title *</label>
+              <input type="text" id="title" placeholder="Book title" required />
+            </div>
+            <div class="form-group">
+              <label>Authors *</label>
+              <input type="text" id="authors" placeholder="Author1; Author2" required />
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <input type="text" id="category" placeholder="Fiction" />
+            </div>
+            <div class="form-group">
+              <label>Thumbnail URL</label>
+              <input type="text" id="thumbnail" placeholder="https://..." />
+            </div>
+            <div class="form-group full-width">
+              <label>Description *</label>
+              <textarea id="description" placeholder="Book description..." rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+              <label>Joy (0-1)</label>
+              <input type="number" id="joy" step="0.01" min="0" max="1" placeholder="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Surprise (0-1)</label>
+              <input type="number" id="surprise" step="0.01" min="0" max="1" placeholder="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Anger (0-1)</label>
+              <input type="number" id="anger" step="0.01" min="0" max="1" placeholder="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Fear (0-1)</label>
+              <input type="number" id="fear" step="0.01" min="0" max="1" placeholder="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Sadness (0-1)</label>
+              <input type="number" id="sadness" step="0.01" min="0" max="1" placeholder="0.5" />
+            </div>
+          </div>
+          <button type="submit" class="submit-btn" id="addBtn">Add Book</button>
+          <p id="addStatus" class="status-msg hidden"></p>
+        </form>
+      </div>
+
+      <!-- Books List -->
+      <div class="admin-card">
+        <div class="list-header">
+          <h2>📖 All Books</h2>
+          <div class="list-actions">
+            <input type="text" id="searchBooks" placeholder="Search books..." oninput="filterBooks()" />
+            <button onclick="loadBooks()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="booksTableContainer">
+          <table class="books-table">
+            <thead>
+              <tr>
+                <th>Cover</th>
+                <th>Title</th>
+                <th>Authors</th>
+                <th>Category</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="booksTableBody">
+              <tr><td colspan="5" class="loading-row">Click Refresh to load books...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="modal-box">
+      <h2>✏️ Edit Book</h2>
+      <input type="hidden" id="editId" />
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="editTitle" />
+        </div>
+        <div class="form-group">
+          <label>Authors</label>
+          <input type="text" id="editAuthors" />
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="editCategory" />
+        </div>
+        <div class="form-group">
+          <label>Thumbnail URL</label>
+          <input type="text" id="editThumbnail" />
+        </div>
+        <div class="form-group full-width">
+          <label>Description</label>
+          <textarea id="editDescription" rows="4"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button onclick="saveEdit()" class="submit-btn">Save Changes</button>
+        <button onclick="closeModal()" class="cancel-btn">Cancel</button>
+      </div>
+      <p id="editStatus" class="status-msg hidden"></p>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
